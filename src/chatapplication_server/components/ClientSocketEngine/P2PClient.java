@@ -7,42 +7,43 @@ package chatapplication_server.components.ClientSocketEngine;
 
 import SocketActionMessages.ChatMessage;
 import chatapplication_server.components.ConfigManager;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.GridLayout;
+import chatapplication_server.components.base.Constants;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import javax.crypto.Cipher;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import javax.swing.WindowConstants;
-
-import java.net.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.InvalidParameterException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
  * @author atgianne
  */
-public class P2PClient extends JFrame implements ActionListener 
-{
-    private static final double G = 2;
-    private static final double Q = 1024;
-    private static final double P = 3;
+public class P2PClient extends JFrame implements ActionListener {
 
     private double KEY = 0;
-    private double A = new Random().nextDouble() % Q;
+    private double A = new Random().nextDouble() % Constants.Q;
+    private Cipher decryptCipher = null;
+    private Cipher encryptCipher = null;
+    private boolean requestSent = false;
 
     private String host;
     private String port;
@@ -54,24 +55,24 @@ public class P2PClient extends JFrame implements ActionListener
     private final JTextArea ta;
     protected boolean keepGoing;
     JButton send, start;
-    
-    P2PClient(){
+
+    P2PClient() {
         super("P2P Client Chat");
-        host=ConfigManager.getInstance().getValue( "Server.Address" );
-        port=ConfigManager.getInstance().getValue( "Server.PortNumber" );
-        
+        host = ConfigManager.getInstance().getValue("Server.Address");
+        port = ConfigManager.getInstance().getValue("Server.PortNumber");
+
         // The NorthPanel with:
-        JPanel northPanel = new JPanel(new GridLayout(3,1));
+        JPanel northPanel = new JPanel(new GridLayout(3, 1));
         // the server name anmd the port number
-        JPanel serverAndPort = new JPanel(new GridLayout(1,5, 1, 3));
+        JPanel serverAndPort = new JPanel(new GridLayout(1, 5, 1, 3));
         // the two JTextField with default value for server address and port number
         tfServer = new JTextField(host);
         tfPort = new JTextField("" + port);
         tfPort.setHorizontalAlignment(SwingConstants.RIGHT);
-        
-        tfsPort=new JTextField(5);
+
+        tfsPort = new JTextField(5);
         tfsPort.setHorizontalAlignment(SwingConstants.RIGHT);
-        start=new JButton("Start");
+        start = new JButton("Start");
         start.addActionListener(this);
 
         serverAndPort.add(new JLabel("Receiver's Port No:  "));
@@ -89,10 +90,10 @@ public class P2PClient extends JFrame implements ActionListener
         tf.setBackground(Color.WHITE);
         northPanel.add(tf);
         add(northPanel, BorderLayout.NORTH);
-        
+
         // The CenterPanel which is the chat room
         ta = new JTextArea(" ", 80, 80);
-        JPanel centerPanel = new JPanel(new GridLayout(1,1));
+        JPanel centerPanel = new JPanel(new GridLayout(1, 1));
         centerPanel.add(new JScrollPane(ta));
         ta.setEditable(false);
 
@@ -100,19 +101,19 @@ public class P2PClient extends JFrame implements ActionListener
 //        ta2.setEditable(false);
 //        centerPanel.add(new JScrollPane(ta2));   
         add(centerPanel, BorderLayout.CENTER);
-        
-        
+
+
         send = new JButton("Send");
         send.addActionListener(this);
         JPanel southPanel = new JPanel();
         southPanel.add(send);
         southPanel.add(start);
-        JLabel lbl=new JLabel("Sender's Port No:");
+        JLabel lbl = new JLabel("Sender's Port No:");
         southPanel.add(lbl);
         tfsPort.setText("0");
         southPanel.add(tfsPort);
         add(southPanel, BorderLayout.SOUTH);
-        
+
         this.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
 //        setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -120,62 +121,85 @@ public class P2PClient extends JFrame implements ActionListener
         setVisible(true);
         tf.requestFocus();
     }
-    
+
     @Override
     public void actionPerformed(ActionEvent e) {
         Object o = e.getSource();
-        if(o == send){
-            if ( tfPort.getText().equals( ConfigManager.getInstance().getValue( "Server.PortNumber" ) ) )
-            {
-                display( "Cannot give the same port number as the Chat Application Server - Please give the port number of the peer client to communicate!\n" );
+        if (o == send) {
+            if (tfPort.getText().equals(ConfigManager.getInstance().getValue("Server.PortNumber"))) {
+                display("Cannot give the same port number as the Chat Application Server - Please give the port number of the peer client to communicate!\n");
                 return;
             }
             this.send(tf.getText());
         }
-        if(o == start){
+        if (o == start) {
             new ListenFromClient().start();
         }
     }
-    
+
     public void display(String str) {
         ta.append(str + "\n");
         ta.setCaretPosition(ta.getText().length() - 1);
     }
-    
-    public boolean send(String str){
-        Socket socket;
-        ObjectOutputStream sOutput;		// to write on the socket
-        // try to connect to the server
-            try {
-                    socket = new Socket(tfServer.getText(), Integer.parseInt(tfPort.getText()));
-            } 
-            // if it failed not much I can so
-            catch(Exception ec) {
-                    display("Error connectiong to server:" + ec.getMessage() + "\n");
-                    return false;
-            }
 
-            /* Creating both Data Stream */
-            try
-            {
+    public void initializeCiphers() {
+        if(KEY == 0) {
+            throw new IllegalArgumentException("Key cannot be 0");
+        }
+        try {
+            IvParameterSpec initializationVector = new IvParameterSpec(Arrays.copyOfRange(String.valueOf(KEY).getBytes(StandardCharsets.UTF_8), 0, 16));
+            encryptCipher = Cipher.getInstance(Constants.ALGORITHM);
+            SecretKeySpec encKey = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
+            encryptCipher.init(Cipher.ENCRYPT_MODE, encKey, initializationVector);
+            decryptCipher = Cipher.getInstance(Constants.ALGORITHM);
+            SecretKeySpec decKey = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
+            decryptCipher.init(Cipher.DECRYPT_MODE, decKey, initializationVector);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public boolean send(String str) {
+        Socket socket;
+        ObjectOutputStream sOutput;
+        // to write on the socket
+        // try to connect to the server
+        try {
+            socket = new Socket(tfServer.getText(), Integer.parseInt(tfPort.getText()));
+        }
+        // if it failed not much I can so
+        catch (Exception ec) {
+            display("Error connectiong to server:" + ec.getMessage() + "\n");
+            return false;
+        }
+
+        /* Creating both Data Stream */
+        try {
 //			sInput  = new ObjectInputStream(socket.getInputStream());
-                    sOutput = new ObjectOutputStream(socket.getOutputStream());
-            }
-            catch (IOException eIO) {
-                    display("Exception creating new Input/output Streams: " + eIO);
-                    return false;
-            }
+            sOutput = new ObjectOutputStream(socket.getOutputStream());
+        } catch (IOException eIO) {
+            display("Exception creating new Input/output Streams: " + eIO);
+            return false;
+        }
 
         try {
             //TODO: send key request
-            if(KEY == 0) {
-                Double power = new Random().nextDouble() % Q;
-                Double response = Math.pow(G, power) % P;
+            if (KEY == 0) {
+                Double response = Math.pow(Constants.G, A) % Constants.P;
                 //TODO: make response hashed
-                send(String.valueOf(response));
+                sOutput.writeObject(response);
+                requestSent = true;
             } else {
                 //TODO: encrypt here
-                sOutput.writeObject(new ChatMessage(str.length(), str));
+                try {
+                    ChatMessage message = new ChatMessage(str.length(), str);
+                    byte[] plainText = message.toString().getBytes(StandardCharsets.UTF_8);
+                    byte[] cipherText = encryptCipher.doFinal(plainText);
+                    sOutput.writeObject(cipherText);
+                } catch (BadPaddingException | IllegalBlockSizeException e) {
+                    display("Exception encrypting: " + e);
+                }
                 display("You: " + str);
                 sOutput.close();
                 socket.close();
@@ -184,77 +208,114 @@ public class P2PClient extends JFrame implements ActionListener
             display("Exception creating new Input/output Streams: " + ex);
         }
 
-         return true;
+        return true;
     }
-    
-    private class ListenFromClient extends Thread{
-            public ListenFromClient() {
-                keepGoing=true;
-            }
 
-            private double KEY = 0;
+    public boolean sendDiffieHellman(Double result) {
+        Socket socket;
+        ObjectOutputStream sOutput;
+        // to write on the socket
+        // try to connect to the server
+        try {
+            socket = new Socket(tfServer.getText(), Integer.parseInt(tfPort.getText()));
+        }
+        // if it failed not much I can so
+        catch (Exception ec) {
+            display("Error connectiong to server:" + ec.getMessage() + "\n");
+            return false;
+        }
 
-            @Override
-            public void run() {
-                try 
-		{ 
-			// the socket used by the server
-			ServerSocket serverSocket = new ServerSocket(Integer.parseInt(tfsPort.getText()));
-                        //display("Server is listening on port:"+tfsPort.getText());
-                        ta.append("Server is listening on port:"+tfsPort.getText() + "\n");
-                        ta.setCaretPosition(ta.getText().length() - 1);
+        /* Creating both Data Stream */
+        try {
+//			sInput  = new ObjectInputStream(socket.getInputStream());
+            sOutput = new ObjectOutputStream(socket.getOutputStream());
+        } catch (IOException eIO) {
+            display("Exception creating new Input/output Streams: " + eIO);
+            return false;
+        }
 
-			// infinite loop to wait for connections
-			while(keepGoing) 
-			{
-                            // format message saying we are waiting
+        try {
+            sOutput.writeObject(result);
+        } catch (IOException ex) {
+            display("Exception creating new Input/output Streams: " + ex);
+        }
 
-                            Socket socket = serverSocket.accept();  	// accept connection
+        return true;
+    }
 
-                            ObjectInputStream sInput=null;		// to write on the socket
+    private class ListenFromClient extends Thread {
+        public ListenFromClient() {
+            keepGoing = true;
+        }
 
-                            /* Creating both Data Stream */
-                            try
-                            {
-                                    sInput = new ObjectInputStream(socket.getInputStream());
+        @Override
+        public void run() {
+            try {
+                // the socket used by the server
+                ServerSocket serverSocket = new ServerSocket(Integer.parseInt(tfsPort.getText()));
+                //display("Server is listening on port:"+tfsPort.getText());
+                ta.append("Server is listening on port:" + tfsPort.getText() + "\n");
+                ta.setCaretPosition(ta.getText().length() - 1);
+
+                // infinite loop to wait for connections
+                while (keepGoing) {
+                    // format message saying we are waiting
+
+                    Socket socket = serverSocket.accept();    // accept connection
+
+                    ObjectInputStream sInput = null;        // to write on the socket
+
+                    /* Creating both Data Stream */
+                    try {
+                        sInput = new ObjectInputStream(socket.getInputStream());
+                    } catch (IOException eIO) {
+                        display("Exception creating new Input/output Streams: " + eIO);
+                    }
+
+                    try {
+                        //TODO: respond to exchanging keys here
+                        if (KEY == 0) {
+                            //TODO: unhash
+                            Double gB = (Double) sInput.readObject();
+                            KEY = Math.pow(gB, A) % Constants.P;
+                            initializeCiphers();
+                            if (!requestSent) {
+                                //TODO: KEY should get hashed somewhat for better key
+                                KEY = Math.pow(gB, A) % Constants.P;
+                                initializeCiphers();
+                                Double response = Math.pow(Constants.G, A) % Constants.P;
+                                sendDiffieHellman(response);
+                                requestSent = true;
                             }
-                            catch (IOException eIO) {
-                                    display("Exception creating new Input/output Streams: " + eIO);
-                            }
+                            //TODO: hash
+                        } else {
+                            //TODO: decrypt here
+                            byte[] encryptedMessage = (byte[]) sInput.readObject();
+                            byte[] plainText = decryptCipher.doFinal(encryptedMessage);
+                            String decryptedMessage = new String(plainText);
+                            ChatMessage cm = new ChatMessage(Integer.parseInt(decryptedMessage.substring(0, 1)), decryptedMessage.substring(1));
 
-                            try {
-                                //TODO: respond to exchanging keys here
-                                if(KEY == 0) {
-                                    //TODO: unhash
-                                    Double A = Double.valueOf(((ChatMessage) sInput.readObject()).getMessage());
-                                    Double power = new Random().nextDouble() % Q;
-                                    //TODO: KEY should get hashed somewhat for better key
-                                    KEY = Math.pow(A, power);
-                                    //TODO: hash
-                                    Double response = Math.pow(G, power) % P;
-                                    send(String.valueOf(response));
-                                }
-                                else {
-                                    //TODO: decrypt here
-                                    String msg = ((ChatMessage) sInput.readObject()).getMessage();
-                                    System.out.println("Msg:" + msg);
-                                    display(socket.getInetAddress() + ": " + socket.getPort() + ": " + msg);
-                                }
-                                sInput.close();
-                                socket.close();
-                            } catch (IOException ex) {
-                                display("Exception creating new Input/output Streams: " + ex);
-                            } catch (ClassNotFoundException ex) {
-                                Logger.getLogger(P2PClient.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-
+                            String msg = cm.getMessage();
+                            System.out.println("Msg:" + msg);
+                            display(socket.getInetAddress() + ": " + socket.getPort() + ": " + msg);
                         }
-		}
-		// something went bad
-		catch (IOException e) {
+                        sInput.close();
+                        socket.close();
+                    } catch (IOException ex) {
+                        display("Exception creating new Input/output Streams: " + ex);
+                    } catch (ClassNotFoundException ex) {
+                        Logger.getLogger(P2PClient.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (BadPaddingException | IllegalBlockSizeException e) {
+                        display("Exception decrypting: " + e);
+                    }
+
+                }
+            }
+            // something went bad
+            catch (IOException e) {
 //            String msg = sdf.format(new Date()) + " Exception on new ServerSocket: " + e + "\n";
 //			display(msg);
-		}
-	}		
+            }
+        }
     }
 }
