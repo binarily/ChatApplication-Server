@@ -18,11 +18,9 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Random;
 import java.util.Vector;
 
@@ -102,20 +100,6 @@ public class SocketConnectionHandler implements Runnable {
         /** Initialize the socket connection stream reader/writer... */
         socketWriter = null;
         socketReader = null;
-
-        //Set up cryptography
-        try {
-            cipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec key = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
-        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
-            /** First print the exception to the current logging stream... */
-            SocketServerGUI.getInstance().appendEvent("[SSEngine]:: Failed upon initialization of the CS connection handler -- " + e.getMessage() + "\n");
-
-            /** Safely shut down the system */
-            ComponentManager.getInstance().fatalException(e);
-        }
-
     }
 
     /**
@@ -178,12 +162,26 @@ public class SocketConnectionHandler implements Runnable {
 
             /** Read the username */
             userName = (String) socketReader.readObject();
-            // TODO: answer with selected cipher
-            int selectedCipher = new Random().nextInt(Constants.CLIENT_KEYS.size());
-            socketWriter.writeInt(selectedCipher);
-            SocketServerEngine.getInstance().portsToCiphers.put(handleConnection.getPort(), selectedCipher);
             SocketServerGUI.getInstance().appendEvent(userName + " just connected at port number: " + handleConnection.getPort() + "\n");
 
+            // TODO: answer with selected cipher and its MAC
+            int selectedCipher = new Random().nextInt(Constants.CLIENT_KEYS.size());
+            //Set up cryptography
+            try {
+                cipher = Cipher.getInstance(Constants.ALGORITHM);
+                SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(selectedCipher), Constants.KEY_ALGORITHM);
+                cipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+
+                socketWriter.writeObject(selectedCipher);
+                SocketServerEngine.getInstance().portsToCiphers.put(handleConnection.getPort(), selectedCipher);
+                SocketServerGUI.getInstance().appendEvent(userName + " got key with number: " + selectedCipher + "\n");
+            } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
+                /** First print the exception to the current logging stream... */
+                SocketServerGUI.getInstance().appendEvent("[SSEngine]:: Failed upon initialization of the CS connection handler -- " + e.getMessage() + "\n");
+
+                /** Safely shut down the system */
+                ComponentManager.getInstance().fatalException(e);
+            }
             return true;
         } catch (StreamCorruptedException sce) {
             /** Keep track of the exception in the logging stream... */

@@ -12,6 +12,7 @@ import chatapplication_server.components.base.Constants;
 import chatapplication_server.components.base.GenericThreadedComponent;
 import chatapplication_server.exception.ComponentInitException;
 import chatapplication_server.statistics.ServerStatistics;
+import com.sun.tools.internal.jxc.ap.Const;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -57,7 +58,7 @@ public class ClientEngine extends GenericThreadedComponent {
     private ObjectOutputStream socketWriter;
     private ObjectInputStream socketReader;
 
-    //Cipher
+    //Cipher, set up by a thread
     Cipher cipher;
 
     /**
@@ -95,18 +96,6 @@ public class ClientEngine extends GenericThreadedComponent {
         /** For printing the configuration properties of the secure socket server */
         lotusStat = new ServerStatistics();
 
-        //Set up cryptography
-        try {
-            cipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec key = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
-        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
-            display("Error initializing cryptography:" + e.getMessage() + "\n");
-            ClientSocketGUI.getInstance().loginFailed();
-            return;
-        }
-
-
         /** Try and connect to the server... */
         try {
             socket = new Socket(configManager.getValue("Server.Address"), configManager.getValueInt("Server.PortNumber"));
@@ -124,9 +113,6 @@ public class ClientEngine extends GenericThreadedComponent {
             /** Set up the stream reader/writer for this socket connection... */
             socketWriter = new ObjectOutputStream(socket.getOutputStream());
             socketReader = new ObjectInputStream(socket.getInputStream());
-
-            /** Start the ListeFromServer thread... */
-            new ListenFromServer().start();
         } catch (IOException ioe) {
             display("Exception creating new Input/Output Streams: " + ioe + "\n");
             ComponentManager.getInstance().fatalException(ioe);
@@ -139,6 +125,22 @@ public class ClientEngine extends GenericThreadedComponent {
             display("Exception during login: " + ioe);
             shutdown();
             ComponentManager.getInstance().fatalException(ioe);
+        }
+
+        //TODO: select the key (check MAC)
+        try {
+            int selectedCipher = (Integer) socketReader.readObject();
+            SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(selectedCipher), Constants.KEY_ALGORITHM);
+            cipher = Cipher.getInstance(Constants.ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+            Cipher decryptionCipher = Cipher.getInstance(Constants.ALGORITHM);
+            decryptionCipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+
+            /** Start the ListeFromServer thread... */
+            new ListenFromServer(decryptionCipher).start();
+        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IOException | ClassNotFoundException e) {
+            ClientSocketGUI.getInstance().append("Can't establish cryptography: " + e.getMessage() + "\n");
+            ComponentManager.getInstance().fatalException(e);
         }
 
         super.initialize();
