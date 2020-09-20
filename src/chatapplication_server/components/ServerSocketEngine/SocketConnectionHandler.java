@@ -23,6 +23,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.Vector;
 
 /**
@@ -177,6 +178,10 @@ public class SocketConnectionHandler implements Runnable {
 
             /** Read the username */
             userName = (String) socketReader.readObject();
+            // TODO: answer with selected cipher
+            int selectedCipher = new Random().nextInt(Constants.CLIENT_KEYS.size());
+            socketWriter.writeInt(selectedCipher);
+            SocketServerEngine.getInstance().portsToCiphers.put(handleConnection.getPort(), selectedCipher);
             SocketServerGUI.getInstance().appendEvent(userName + " just connected at port number: " + handleConnection.getPort() + "\n");
 
             return true;
@@ -356,8 +361,8 @@ public class SocketConnectionHandler implements Runnable {
                         SocketServerEngine.getInstance().printEstablishedSocketInfo();
                         break;
                     case ChatMessage.PRIVATEMESSAGE:
-                        String temp[] = cm.getMessage().split(",");
-                        int PortNo = Integer.valueOf(temp[0]);
+                        String[] temp = cm.getMessage().split(",");
+                        int PortNo = Integer.parseInt(temp[0]);
                         String Chat = temp[1];
 
                         System.out.println("At Server :  " + PortNo + temp[1]);

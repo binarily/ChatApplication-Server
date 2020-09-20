@@ -26,24 +26,26 @@ import java.util.Arrays;
  */
 public class ListenFromServer extends Thread {
     //Cipher
-    Cipher cipher;
+    Cipher cipher = null;
 
     public void run() {
         //Set up cryptography
-        try {
-            cipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec key = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
-        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
-            ClientSocketGUI.getInstance().append("Can't establish cryptography: " + e.getMessage() + "\n");
-            ComponentManager.getInstance().fatalException(e);
-        }
-
         while (true) {
             ObjectInputStream sInput = ClientEngine.getInstance().getStreamReader();
 
             synchronized (sInput) {
                 try {
+                    if(cipher == null) {
+                        int selectedCipher = sInput.readInt();
+                        try {
+                            cipher = Cipher.getInstance(Constants.ALGORITHM);
+                            SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(selectedCipher), Constants.KEY_ALGORITHM);
+                            cipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+                        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
+                            ClientSocketGUI.getInstance().append("Can't establish cryptography: " + e.getMessage() + "\n");
+                            ComponentManager.getInstance().fatalException(e);
+                        }
+                    }
                     //TODO: decrypt here
                     byte[] encryptedMessage = (byte[]) sInput.readObject();
                     byte[] plainText = cipher.doFinal(encryptedMessage);

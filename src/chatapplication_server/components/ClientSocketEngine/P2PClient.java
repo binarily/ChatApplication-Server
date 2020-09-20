@@ -25,10 +25,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.InvalidParameterException;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.logging.Level;
@@ -39,8 +36,8 @@ import java.util.logging.Logger;
  */
 public class P2PClient extends JFrame implements ActionListener {
 
-    private double KEY = 0;
-    private double A = new Random().nextDouble() % Constants.Q;
+    private Long KEY = -1l;
+    private long A = Math.floorMod(new Random().nextLong(), Constants.Q) + 1;
     private Cipher decryptCipher = null;
     private Cipher encryptCipher = null;
     private boolean requestSent = false;
@@ -143,17 +140,18 @@ public class P2PClient extends JFrame implements ActionListener {
     }
 
     public void initializeCiphers() {
-        if(KEY == 0) {
-            throw new IllegalArgumentException("Key cannot be 0");
+        if(KEY == -1) {
+            throw new IllegalArgumentException("Key cannot be -1");
         }
         try {
-            IvParameterSpec initializationVector = new IvParameterSpec(Arrays.copyOfRange(String.valueOf(KEY).getBytes(StandardCharsets.UTF_8), 0, 16));
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] keyHash = md.digest(String.valueOf(KEY).getBytes(StandardCharsets.UTF_8));
+            SecretKeySpec keyUsed = new SecretKeySpec(Arrays.copyOfRange(keyHash, 0, 16), Constants.KEY_ALGORITHM);
+
             encryptCipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec encKey = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            encryptCipher.init(Cipher.ENCRYPT_MODE, encKey, initializationVector);
+            encryptCipher.init(Cipher.ENCRYPT_MODE, keyUsed, Constants.INITIALIZATION_VECTOR);
             decryptCipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec decKey = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            decryptCipher.init(Cipher.DECRYPT_MODE, decKey, initializationVector);
+            decryptCipher.init(Cipher.DECRYPT_MODE, keyUsed, Constants.INITIALIZATION_VECTOR);
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
             e.printStackTrace();
         }
@@ -185,8 +183,8 @@ public class P2PClient extends JFrame implements ActionListener {
 
         try {
             //TODO: send key request
-            if (KEY == 0) {
-                Double response = Math.pow(Constants.G, A) % Constants.P;
+            if (KEY == -1) {
+                Long response = Constants.G ^ A % Constants.P;
                 //TODO: make response hashed
                 sOutput.writeObject(response);
                 requestSent = true;
@@ -211,7 +209,7 @@ public class P2PClient extends JFrame implements ActionListener {
         return true;
     }
 
-    public boolean sendDiffieHellman(Double result) {
+    public boolean sendDiffieHellman(Long result) {
         Socket socket;
         ObjectOutputStream sOutput;
         // to write on the socket
@@ -274,16 +272,14 @@ public class P2PClient extends JFrame implements ActionListener {
 
                     try {
                         //TODO: respond to exchanging keys here
-                        if (KEY == 0) {
+                        if (KEY == -1) {
                             //TODO: unhash
-                            Double gB = (Double) sInput.readObject();
-                            KEY = Math.pow(gB, A) % Constants.P;
+                            Long gB = (Long) sInput.readObject();
+                            KEY = gB ^ A % Constants.P;
                             initializeCiphers();
                             if (!requestSent) {
                                 //TODO: KEY should get hashed somewhat for better key
-                                KEY = Math.pow(gB, A) % Constants.P;
-                                initializeCiphers();
-                                Double response = Math.pow(Constants.G, A) % Constants.P;
+                                Long response = Constants.G ^ A % Constants.P;
                                 sendDiffieHellman(response);
                                 requestSent = true;
                             }

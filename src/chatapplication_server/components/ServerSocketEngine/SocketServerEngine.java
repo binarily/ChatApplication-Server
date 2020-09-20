@@ -27,6 +27,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Vector;
 
 /**
@@ -69,7 +70,9 @@ public class SocketServerEngine extends GenericThreadedComponent {
     ServerSocket ChatApplication_Server;
 
     //Cipher used for encryption
-    Cipher cipher;
+    Cipher[] ciphers;
+
+    HashMap<Integer, Integer> portsToCiphers = new HashMap<>();
 
     /**
      * Creates a new instance of SocketServerEngine
@@ -137,10 +140,13 @@ public class SocketServerEngine extends GenericThreadedComponent {
         lotusStat = new ServerStatistics();
 
         //Set up cryptography
+        ciphers = new Cipher[Constants.CLIENT_KEYS.size()];
         try {
-            cipher = Cipher.getInstance(Constants.ALGORITHM);
-            SecretKeySpec key = new SecretKeySpec(Constants.KEY, Constants.KEY_ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+            for(int i = 0; i < Constants.CLIENT_KEYS.size(); i++) {
+                ciphers[i] = Cipher.getInstance(Constants.ALGORITHM);
+                SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(i), Constants.KEY_ALGORITHM);
+                ciphers[i].init(Cipher.ENCRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
+            }
         } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
             /** First print the exception to the current logging stream... */
             SocketServerGUI.getInstance().appendEvent("[SSEngine]:: Failed upon initialization of the CS socket server -- " + e.getMessage() + " (" + lotusStat.getCurrentDate() + ")\n");
@@ -221,6 +227,7 @@ public class SocketServerEngine extends GenericThreadedComponent {
 
                 /** If this is the correct connection handler...remove it from the occupance pool */
                 if (occupiedH.getHandlerIdentifierName().equals(sch)) {
+                    portsToCiphers.remove(occupiedH.getHandleSocket().getPort());
                     connHandlerOccp.remove(i);
                     break;
                 }
@@ -345,7 +352,7 @@ public class SocketServerEngine extends GenericThreadedComponent {
                 //TODO: encrypt here
                 try {
                     byte[] plainText = msg.getBytes(StandardCharsets.UTF_8);
-                    byte[] cipherText = cipher.doFinal(plainText);
+                    byte[] cipherText = ciphers[portsToCiphers.get(PortNo)].doFinal(plainText);
                     sch.writeMsg(cipherText);
                 } catch (BadPaddingException | IllegalBlockSizeException e) {
                     e.printStackTrace();
@@ -391,7 +398,7 @@ public class SocketServerEngine extends GenericThreadedComponent {
             //TODO: encrypt here
             try {
                 byte[] plainText = messageLf.getBytes(StandardCharsets.UTF_8);
-                byte[] cipherText = cipher.doFinal(plainText);
+                byte[] cipherText = ciphers[portsToCiphers.get(sch.getHandleSocket().getPort())].doFinal(plainText);
                 sch.writeMsg(cipherText);
             } catch (BadPaddingException | IllegalBlockSizeException e) {
                 e.printStackTrace();
