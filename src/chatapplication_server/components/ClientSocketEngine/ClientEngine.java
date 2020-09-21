@@ -6,6 +6,7 @@
 package chatapplication_server.components.ClientSocketEngine;
 
 import SocketActionMessages.ChatMessage;
+import SocketActionMessages.CipherSelectionMessage;
 import chatapplication_server.ComponentManager;
 import chatapplication_server.components.ConfigManager;
 import chatapplication_server.components.base.Constants;
@@ -27,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 
 /**
  * @author atgianne
@@ -129,16 +131,23 @@ public class ClientEngine extends GenericThreadedComponent {
 
         //TODO: select the key (check MAC)
         try {
-            int selectedCipher = (Integer) socketReader.readObject();
+            CipherSelectionMessage csm = (CipherSelectionMessage) socketReader.readObject();
+            int selectedCipher = csm.getSelectedCipher();
             SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(selectedCipher), Constants.KEY_ALGORITHM);
             cipher = Cipher.getInstance(Constants.ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
             Cipher decryptionCipher = Cipher.getInstance(Constants.ALGORITHM);
             decryptionCipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
 
+            // MAC check
+            String macDecrypted = new String(decryptionCipher.doFinal(csm.getMac()));
+            if (!Objects.equals(macDecrypted, "" + selectedCipher + "," + configManager.getValue("Client.Username"))) {
+                throw new SecurityException("MAC is incorrect!");
+            }
+
             /** Start the ListeFromServer thread... */
             new ListenFromServer(decryptionCipher).start();
-        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IOException | ClassNotFoundException e) {
+        } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IOException | ClassNotFoundException | IllegalBlockSizeException | BadPaddingException e) {
             ClientSocketGUI.getInstance().append("Can't establish cryptography: " + e.getMessage() + "\n");
             ComponentManager.getInstance().fatalException(e);
         }

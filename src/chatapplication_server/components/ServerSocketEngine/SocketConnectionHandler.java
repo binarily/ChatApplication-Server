@@ -6,6 +6,7 @@
 package chatapplication_server.components.ServerSocketEngine;
 
 import SocketActionMessages.ChatMessage;
+import SocketActionMessages.CipherSelectionMessage;
 import chatapplication_server.ComponentManager;
 import chatapplication_server.components.ConfigManager;
 import chatapplication_server.components.base.Constants;
@@ -18,6 +19,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -172,10 +175,13 @@ public class SocketConnectionHandler implements Runnable {
                 SecretKeySpec key = new SecretKeySpec(Constants.CLIENT_KEYS.get(selectedCipher), Constants.KEY_ALGORITHM);
                 cipher.init(Cipher.DECRYPT_MODE, key, Constants.INITIALIZATION_VECTOR);
 
-                socketWriter.writeObject(selectedCipher);
+                String mac = "" + selectedCipher + "," + userName;
+                Cipher encryptionCipher = SocketServerEngine.getInstance().ciphers[selectedCipher];
+                byte[] macEncrypted = encryptionCipher.doFinal(mac.getBytes(StandardCharsets.UTF_8));
+                socketWriter.writeObject(new CipherSelectionMessage(selectedCipher, macEncrypted));
                 SocketServerEngine.getInstance().portsToCiphers.put(handleConnection.getPort(), selectedCipher);
                 SocketServerGUI.getInstance().appendEvent(userName + " got key with number: " + selectedCipher + "\n");
-            } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
+            } catch (SecurityException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
                 /** First print the exception to the current logging stream... */
                 SocketServerGUI.getInstance().appendEvent("[SSEngine]:: Failed upon initialization of the CS connection handler -- " + e.getMessage() + "\n");
 
