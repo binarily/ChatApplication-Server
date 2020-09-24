@@ -129,7 +129,7 @@ public class ClientEngine extends GenericThreadedComponent {
             ComponentManager.getInstance().fatalException(ioe);
         }
 
-        //TODO: select the key (check MAC)
+        //select the key (check MAC)
         try {
             CipherSelectionMessage csm = (CipherSelectionMessage) socketReader.readObject();
             int selectedCipher = csm.getSelectedCipher();
@@ -171,7 +171,7 @@ public class ClientEngine extends GenericThreadedComponent {
      */
     public void sendMessage(ChatMessage msg) {
         try {
-            //TODO: encrypt here
+            //encrypt here
             byte[] plainText = msg.toString().getBytes(StandardCharsets.UTF_8);
             byte[] cipherText = cipher.doFinal(plainText);
             socketWriter.writeObject(cipherText);

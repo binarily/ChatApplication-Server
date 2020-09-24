@@ -144,10 +144,12 @@ public class P2PClient extends JFrame implements ActionListener {
             throw new IllegalArgumentException("Key cannot be -1");
         }
         try {
+            //Hash key value
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] keyHash = md.digest(String.valueOf(KEY).getBytes(StandardCharsets.UTF_8));
             SecretKeySpec keyUsed = new SecretKeySpec(Arrays.copyOfRange(keyHash, 0, 16), Constants.KEY_ALGORITHM);
 
+            //Establish used ciphers
             encryptCipher = Cipher.getInstance(Constants.ALGORITHM);
             encryptCipher.init(Cipher.ENCRYPT_MODE, keyUsed, Constants.INITIALIZATION_VECTOR);
             decryptCipher = Cipher.getInstance(Constants.ALGORITHM);
@@ -182,14 +184,13 @@ public class P2PClient extends JFrame implements ActionListener {
         }
 
         try {
-            //TODO: send key request
+            //send key request
             if (KEY == -1) {
                 Long response = Constants.G ^ A % Constants.P;
-                //TODO: make response hashed
                 sOutput.writeObject(response);
                 requestSent = true;
             } else {
-                //TODO: encrypt here
+                //encrypt here
                 try {
                     ChatMessage message = new ChatMessage(str.length(), str);
                     byte[] plainText = message.toString().getBytes(StandardCharsets.UTF_8);
@@ -271,21 +272,18 @@ public class P2PClient extends JFrame implements ActionListener {
                     }
 
                     try {
-                        //TODO: respond to exchanging keys here
+                        //respond to exchanging keys here
                         if (KEY == -1) {
-                            //TODO: unhash
                             Long gB = (Long) sInput.readObject();
                             KEY = gB ^ A % Constants.P;
                             initializeCiphers();
                             if (!requestSent) {
-                                //TODO: KEY should get hashed somewhat for better key
                                 Long response = Constants.G ^ A % Constants.P;
                                 sendDiffieHellman(response);
                                 requestSent = true;
                             }
-                            //TODO: hash
                         } else {
-                            //TODO: decrypt here
+                            //decrypt here
                             byte[] encryptedMessage = (byte[]) sInput.readObject();
                             byte[] plainText = decryptCipher.doFinal(encryptedMessage);
                             String decryptedMessage = new String(plainText);

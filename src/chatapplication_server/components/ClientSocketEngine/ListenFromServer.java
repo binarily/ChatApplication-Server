@@ -39,7 +39,7 @@ public class ListenFromServer extends Thread {
 
             synchronized (sInput) {
                 try {
-                    //TODO: decrypt here
+                    //decrypt here
                     byte[] encryptedMessage = (byte[]) sInput.readObject();
                     byte[] plainText = cipher.doFinal(encryptedMessage);
                     String msg = new String(plainText);

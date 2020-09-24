@@ -167,7 +167,7 @@ public class SocketConnectionHandler implements Runnable {
             userName = (String) socketReader.readObject();
             SocketServerGUI.getInstance().appendEvent(userName + " just connected at port number: " + handleConnection.getPort() + "\n");
 
-            // TODO: answer with selected cipher and its MAC
+            // answer with selected cipher and its MAC
             int selectedCipher = new Random().nextInt(Constants.CLIENT_KEYS.size());
             //Set up cryptography
             try {
@@ -338,7 +338,7 @@ public class SocketConnectionHandler implements Runnable {
         while (isSocketOpen) {
             try {
                 /** Wait until there is something in the stream to be read... */
-                //TODO: decrypt here
+                //decrypt here
                 byte[] encryptedMessage = (byte[]) socketReader.readObject();
                 byte[] plainText = cipher.doFinal(encryptedMessage);
                 String decryptedMessage = new String(plainText);

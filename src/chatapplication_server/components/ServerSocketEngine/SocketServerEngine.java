@@ -349,7 +349,7 @@ public class SocketServerEngine extends GenericThreadedComponent {
 
             /** If this is the correct client... */
             if (sch.getHandleSocket().getPort() == PortNo){
-                //TODO: encrypt here
+                //encrypt here
                 try {
                     byte[] plainText = msg.getBytes(StandardCharsets.UTF_8);
                     byte[] cipherText = ciphers[portsToCiphers.get(PortNo)].doFinal(plainText);
@@ -395,7 +395,7 @@ public class SocketServerEngine extends GenericThreadedComponent {
             /** Get a Connection Handler reference... */
             SocketConnectionHandler sch = (SocketConnectionHandler) occupance.get(i);
 
-            //TODO: encrypt here
+            //encrypt here
             try {
                 byte[] plainText = messageLf.getBytes(StandardCharsets.UTF_8);
                 byte[] cipherText = ciphers[portsToCiphers.get(sch.getHandleSocket().getPort())].doFinal(plainText);
