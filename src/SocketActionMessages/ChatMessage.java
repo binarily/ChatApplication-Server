@@ -6,6 +6,7 @@
 package SocketActionMessages;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 
 /**
  * This class defines the different type of messages that will be exchanged between the
@@ -31,18 +32,23 @@ public class ChatMessage implements Serializable
 
     private int type;
 
-    private String message;
+    private byte[] message;
 
      
 
     // constructor
 
-    public ChatMessage(int type, String message) {
+    public ChatMessage(int type, byte[] message) {
 
         this.type = type;
 
         this.message = message;
 
+    }
+
+    public ChatMessage(int type, String message) {
+        this.type = type;
+        this.message = message.getBytes(StandardCharsets.UTF_8);
     }
 
      
@@ -55,9 +61,11 @@ public class ChatMessage implements Serializable
 
     }
 
-    public String getMessage() {
-
+    public byte[] getMessage() {
         return message;
+    }
 
+    public String getStringMessage() {
+        return new String(message);
     }
 }

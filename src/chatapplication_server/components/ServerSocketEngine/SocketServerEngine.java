@@ -401,7 +401,7 @@ public class SocketServerEngine extends GenericThreadedComponent
                 {
                     byte[] plainText = msg.getBytes(StandardCharsets.UTF_8);
                     Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-                    cipher.init(Cipher.ENCRYPT_MODE, receipient_key);  
+                    cipher.init(Cipher.PUBLIC_KEY, receipient_key);
                     byte[] cipherText = cipher.doFinal(plainText);
 
                     sch.writeMsg( cipherText );
@@ -460,7 +460,7 @@ public class SocketServerEngine extends GenericThreadedComponent
                 System.out.println(Arrays.toString(plainText));
 
                 Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-                cipher.init(Cipher.ENCRYPT_MODE, receipient_key);  
+                cipher.init(Cipher.PUBLIC_KEY, receipient_key);
                 byte[] cipherText = cipher.doFinal(plainText);
                 System.out.println(Arrays.toString(cipherText));
                 sch.writeMsg( cipherText );

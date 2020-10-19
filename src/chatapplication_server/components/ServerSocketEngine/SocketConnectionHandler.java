@@ -120,7 +120,8 @@ public class SocketConnectionHandler implements Runnable
         }
         catch ( Exception e )
         {
-            return;
+            /** Keep track of this exception in the logging stream... */
+            SocketServerGUI.getInstance().appendEvent( userName + " Exception creating crypto:" + e.getMessage() + "\n" );
         }
     }
     
@@ -367,22 +368,21 @@ public class SocketConnectionHandler implements Runnable
                 // Wait ChatMessage
                 cm = (ChatMessage) socketReader.readObject();
                 int cm_type = cm.getType();
-                String cm_ciphertext = cm.getMessage();
+                byte[] cm_ciphertext = cm.getMessage();
                 System.out.println(cm_ciphertext);
 
                 //decrypt here
                 Cipher decryptionCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-                decryptionCipher.init(Cipher.DECRYPT_MODE, private_key);
-                byte[] encryptedMessage = cm_ciphertext.getBytes(StandardCharsets.UTF_8);
+                decryptionCipher.init(Cipher.PRIVATE_KEY, private_key);
 
-                byte[] plainText = decryptionCipher.doFinal(encryptedMessage);
+                byte[] plainText = decryptionCipher.doFinal(cm_ciphertext);
                 System.out.println(Arrays.toString(plainText));
 
                 String decryptedMessage = new String(plainText);
                 System.out.println(decryptedMessage);
 
                 ChatMessage cm = new ChatMessage(cm_type, decryptedMessage);
-                String message = cm.getMessage();
+                String message = cm.getStringMessage();
                 
                 // Switch on the type of message receive
                 switch(cm.getType()) 
@@ -404,7 +404,7 @@ public class SocketConnectionHandler implements Runnable
                     SocketServerEngine.getInstance().printEstablishedSocketInfo();
                     break;
                 case ChatMessage.PRIVATEMESSAGE:
-                    String temp[] = cm.getMessage().split(",");
+                    String temp[] = cm.getStringMessage().split(",");
                     int PortNo = Integer.valueOf(temp[0]);
                     String Chat = temp[1];
 

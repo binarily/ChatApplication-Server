@@ -137,11 +137,6 @@ public class ClientEngine extends GenericThreadedComponent
     }
     
      /**
-     * Implementation of IComponent.initialize method().
-     * This method is called upon initialize of the ClientEngine component and handles any configuration that needs to be
-     * done in the client before it connects to the Chat Application Server.
-     * 
-     * @see IComponent interface.
      */
     public void initialize(String username) throws ComponentInitException
     {
@@ -160,6 +155,8 @@ public class ClientEngine extends GenericThreadedComponent
         }
         catch ( Exception e )
         {
+            display( "Error connecting to the server:" + e.getMessage() + "\n" );
+            ClientSocketGUI.getInstance().loginFailed();
             return;
         }
 
@@ -215,7 +212,7 @@ public class ClientEngine extends GenericThreadedComponent
         try 
         {
             Cipher decryptionCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-            decryptionCipher.init(Cipher.DECRYPT_MODE, private_key);
+            decryptionCipher.init(Cipher.PRIVATE_KEY, private_key);
 
             // Start the ListenFromServer thread, but include the decryption cypher in it
             new ListenFromServer(decryptionCipher).start();
@@ -248,22 +245,19 @@ public class ClientEngine extends GenericThreadedComponent
     {
         try 
         {
-            String message_part = msg.getMessage();
+            byte[] message_part = msg.getMessage();
             System.out.println("I want to sent just " + message_part);
             int type_part = msg.getType();
 
-            byte[] plainText = message_part.getBytes(StandardCharsets.UTF_8);
-            System.out.println(Arrays.toString(plainText));
+            System.out.println(Arrays.toString(message_part));
 
             Cipher encryptionCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-            encryptionCipher.init(Cipher.ENCRYPT_MODE, server_public_key);
-            byte[] cipherText = encryptionCipher.doFinal(plainText);
+            encryptionCipher.init(Cipher.PUBLIC_KEY, server_public_key);
+            byte[] cipherText = encryptionCipher.doFinal(message_part);
 
             System.out.println(Arrays.toString(cipherText));
-            ChatMessage cipherChat = new ChatMessage(type_part,Arrays.toString(cipherText));
+            ChatMessage cipherChat = new ChatMessage(type_part, cipherText);
             socketWriter.writeObject(cipherChat);
-
-
         }
         catch (BadPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | IOException e) 
         {
