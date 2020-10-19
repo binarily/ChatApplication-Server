@@ -371,7 +371,9 @@ public class ClientSocketGUI extends JFrame implements IComponent, ActionListene
             // Action listener for when the user enter a message
             tf.addActionListener(this);
             
-            client.initialize();
+
+
+            client.initialize(username);
             }
             catch ( ComponentInitException ie )
             {

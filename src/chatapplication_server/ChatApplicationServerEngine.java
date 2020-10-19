@@ -52,6 +52,7 @@ public class ChatApplicationServerEngine
      */
     public void startUpCAServer()
     {
+
        System.out.println( "[ChatApplicationServer_Engine]: Booting up..." );
         
         /** Fetch the ComponentManager running instance */

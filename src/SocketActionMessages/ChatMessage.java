@@ -60,7 +60,4 @@ public class ChatMessage implements Serializable
         return message;
 
     }
-    public String toString() {
-        return type + message;
-    }
 }
