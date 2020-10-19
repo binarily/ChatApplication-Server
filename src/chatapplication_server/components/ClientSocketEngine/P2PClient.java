@@ -34,6 +34,28 @@ import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import java.util.TreeMap;
+import java.lang.String;
+import java.nio.charset.StandardCharsets;
+
+import PublicKeyCrypto.*;
+import java.security.KeyStore;
+import java.security.PublicKey;
+import java.security.PrivateKey;
+
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+
+import javax.crypto.Cipher;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+
 /**
  * @author atgianne
  */
@@ -75,8 +97,36 @@ public class P2PClient extends JFrame implements ActionListener {
      */
     boolean isConnected;
 
-    P2PClient() {
+
+    private String username;
+    private PublicKey public_key,server_public_key;
+    private X509Certificate cert;
+    private TreeMap<String, X509Certificate> all_certificates;
+    private PrivateKey private_key;
+
+    P2PClient( String username) {
+
         super("P2P Client Chat");
+        System.out.println("ENTER P@PPPPPPP : " + username);
+
+        this.username = username;
+        try 
+        {
+            AccessCerts key_store = new AccessCerts(username);
+            this.cert = key_store.getMyCertificate();
+            this.all_certificates = key_store.getAllCertificates();
+            this.private_key = key_store.getMyPrivateKey();
+            this.server_public_key = all_certificates.get("server").getPublicKey();
+            System.out.println("\tkey " + server_public_key.toString());
+
+        }
+        catch ( Exception e )
+        {
+            display( "Error connecting to the server:" + e.getMessage() + "\n" );
+            ClientSocketGUI.getInstance().loginFailed();
+        }
+
+
         host = ConfigManager.getInstance().getValue("Server.Address");
         port = ConfigManager.getInstance().getValue("Server.PortNumber");
 
@@ -185,6 +235,7 @@ public class P2PClient extends JFrame implements ActionListener {
     }
 
     public void display(String str) {
+        System.out.println("koita me : " + str);
         ta.append(str + "\n");
         ta.setCaretPosition(ta.getText().length() - 1);
     }
