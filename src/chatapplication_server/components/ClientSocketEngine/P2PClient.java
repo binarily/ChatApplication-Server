@@ -338,9 +338,13 @@ public class P2PClient extends JFrame implements ActionListener {
         try {
             //send key request
             if (KEY == -1) {
-                //TODO: send DHWithCertificateMessage with certificate and encrypted
                 Long response = Constants.G ^ A % Constants.P;
-                sOutput.writeObject(response);
+                String responseToEncrypt = username + "," + response;
+                public_key = all_certificates.get(str).getPublicKey();
+                Cipher dhEncryptCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");
+                dhEncryptCipher.init(Cipher.PUBLIC_KEY, public_key);
+                byte[] encryptedResponse = dhEncryptCipher.doFinal(responseToEncrypt.getBytes(StandardCharsets.UTF_8));
+                sOutput.writeObject(encryptedResponse);
                 requestSent = true;
             } else {
                 //encrypt here
@@ -356,6 +360,10 @@ public class P2PClient extends JFrame implements ActionListener {
             }
         } catch (IOException ex) {
             display("Exception creating new Input/output Streams: " + ex);
+            this.disconnect();
+            return false;
+        } catch (NoSuchPaddingException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | InvalidKeyException ex) {
+            display("Exception creating crypto: " + ex);
             this.disconnect();
             return false;
         }
@@ -401,16 +409,23 @@ public class P2PClient extends JFrame implements ActionListener {
                     // format message saying we are waiting
                     //respond to exchanging keys here
                     if (KEY == -1) {
-                        //TODO: read certificate with encrypted DH value
-                        //TODO: validate certificate with CA, decrypt DH
-                        //TODO: if necessary, send back own certificate with response to CA (could be done in sendDiffieHellman())
-                        Long gB = (Long) sInput.readObject();
+                        byte[] response = (byte[]) sInput.readObject();
+                        Cipher dhDecryptionCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");
+                        dhDecryptionCipher.init(Cipher.PRIVATE_KEY, private_key);
+                        byte[] decryptedResponse = dhDecryptionCipher.doFinal(response);
+                        String responseString = new String(decryptedResponse);
+                        Long gB = Long.valueOf(responseString.split(",", 2)[1]);
                         KEY = gB ^ A % Constants.P;
                         initializeCiphers();
                         if (!requestSent) {
-                            //TODO: DHWithCertificateMessage response = new DHWithCertificateMessage(cert, response);
-                            Long response = Constants.G ^ A % Constants.P;
-                            sOutput.writeObject(response);
+                            String receiver = responseString.split(",", 2)[0];
+                            Long responseB = Constants.G ^ A % Constants.P;
+                            String responseStr = receiver + "," + responseB;
+                            public_key = all_certificates.get(receiver).getPublicKey();
+                            Cipher dhEncryptCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");
+                            dhEncryptCipher.init(Cipher.PUBLIC_KEY, public_key);
+                            byte[] encryptedResponse = dhEncryptCipher.doFinal(responseStr.getBytes(StandardCharsets.UTF_8));
+                            sOutput.writeObject(encryptedResponse);
                             requestSent = true;
                         }
                     } else {
@@ -429,7 +444,7 @@ public class P2PClient extends JFrame implements ActionListener {
                     clientConnect = false;
                 } catch (ClassNotFoundException ex) {
                     Logger.getLogger(P2PClient.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (BadPaddingException | IllegalBlockSizeException e) {
+                } catch (BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e) {
                     display("Exception decrypting: " + e);
                 }
             }
