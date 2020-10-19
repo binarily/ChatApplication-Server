@@ -309,7 +309,6 @@ public class ClientSocketGUI extends JFrame implements IComponent, ActionListene
          {
              // obtain a port number from j-label of the user it wants to talk to and send the message to server
             String privateMsg = textPortNo.getText()+ "," + ta3.getText()+ "-" + configManager.getValue( "Client.Username" ) +"-#";
-            System.out.println("2nd window : "+ privateMsg );
 
             client.sendMessage(new ChatMessage(ChatMessage.PRIVATEMESSAGE, privateMsg));
 

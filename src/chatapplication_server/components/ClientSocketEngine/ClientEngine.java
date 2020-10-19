@@ -141,7 +141,6 @@ public class ClientEngine extends GenericThreadedComponent
     public void initialize(String username) throws ComponentInitException
     {
 
-        System.out.println("Me lene : " + username);
         this.username = username;
         try 
         {
@@ -208,8 +207,7 @@ public class ClientEngine extends GenericThreadedComponent
             shutdown();
             ComponentManager.getInstance().fatalException(ioe);
         }
-        System.out.println("KAPAPAPAAPPA");
-        try 
+        try
         {
             Cipher decryptionCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
             decryptionCipher.init(Cipher.PRIVATE_KEY, private_key);
@@ -246,7 +244,6 @@ public class ClientEngine extends GenericThreadedComponent
         try 
         {
             byte[] message_part = msg.getMessage();
-            System.out.println("I want to sent just " + message_part);
             int type_part = msg.getType();
 
             System.out.println(Arrays.toString(message_part));
@@ -261,7 +258,6 @@ public class ClientEngine extends GenericThreadedComponent
         }
         catch (BadPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | InvalidKeyException | NoSuchPaddingException | IOException e) 
         {
-            System.out.println("Aloha");
             display( "Exception writing to server: " + e );
         }
     }

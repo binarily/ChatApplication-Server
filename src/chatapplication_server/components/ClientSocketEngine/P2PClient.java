@@ -107,7 +107,6 @@ public class P2PClient extends JFrame implements ActionListener {
     P2PClient( String username) {
 
         super("P2P Client Chat");
-        System.out.println("ENTER P@PPPPPPP : " + username);
 
         this.username = username;
         try 
@@ -235,7 +234,6 @@ public class P2PClient extends JFrame implements ActionListener {
     }
 
     public void display(String str) {
-        System.out.println("koita me : " + str);
         ta.append(str + "\n");
         ta.setCaretPosition(ta.getText().length() - 1);
     }
@@ -436,7 +434,6 @@ public class P2PClient extends JFrame implements ActionListener {
                         ChatMessage cm = new ChatMessage(Integer.parseInt(decryptedMessage.substring(0, 1)), decryptedMessage.substring(1));
 
                         String msg = cm.getStringMessage();
-                        System.out.println("Msg:" + msg);
                         display(socket.getInetAddress() + ": " + socket.getPort() + ": " + msg);
                     }
                 } catch (IOException ex) {

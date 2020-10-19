@@ -46,12 +46,9 @@ public class ListenFromServer extends Thread
                     {
 
                         //decrypt here
-                        System.out.println("AKOUUUUoo  ");
                         byte[] encryptedMessage = (byte[]) sInput.readObject();
                         byte[] plainText = cipher.doFinal(encryptedMessage);
                         String msg = new String(plainText);
-                        System.out.println("AKOUUUUoo  ");
-                        
                         if(msg.contains( "#" ))
                         {
                             ClientSocketGUI.getInstance().appendPrivateChat(msg + "\n");
