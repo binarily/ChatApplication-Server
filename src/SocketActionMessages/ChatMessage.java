@@ -68,4 +68,6 @@ public class ChatMessage implements Serializable
     public String getStringMessage() {
         return new String(message);
     }
+
+    public String toP2PString() { return String.valueOf(type) + new String(message);}
 }

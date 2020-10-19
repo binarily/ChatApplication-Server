@@ -283,28 +283,7 @@ public class P2PClient extends JFrame implements ActionListener {
     }
 
     public boolean send(String str) {
-        Socket socket;
-        ObjectOutputStream sOutput;
         // to write on the socket
-        // try to connect to the server
-        try {
-            socket = new Socket(tfServer.getText(), Integer.parseInt(tfPort.getText()));
-        }
-        // if it failed not much I can so
-        catch (Exception ec) {
-            display("Error connectiong to server:" + ec.getMessage() + "\n");
-            return false;
-        }
-
-        /* Creating both Data Stream */
-        try {
-//			sInput  = new ObjectInputStream(socket.getInputStream());
-            sOutput = new ObjectOutputStream(socket.getOutputStream());
-        } catch (IOException eIO) {
-            display("Exception creating new Input/output Streams: " + eIO);
-            return false;
-        }
-
         try {
             //send key request
             if (KEY == -1) {
@@ -316,7 +295,7 @@ public class P2PClient extends JFrame implements ActionListener {
                 //encrypt here
                 try {
                     ChatMessage message = new ChatMessage(str.length(), str);
-                    byte[] plainText = message.toString().getBytes(StandardCharsets.UTF_8);
+                    byte[] plainText = message.toP2PString().getBytes(StandardCharsets.UTF_8);
                     byte[] cipherText = encryptCipher.doFinal(plainText);
                     sOutput.writeObject(cipherText);
                 } catch (BadPaddingException | IllegalBlockSizeException e) {
@@ -324,40 +303,6 @@ public class P2PClient extends JFrame implements ActionListener {
                 }
                 display("You: " + str);
             }
-        } catch (IOException ex) {
-            display("Exception creating new Input/output Streams: " + ex);
-            this.disconnect();
-            return false;
-        }
-
-        return true;
-    }
-
-    public boolean sendDiffieHellman(Long result) {
-        Socket socket;
-        ObjectOutputStream sOutput;
-        // to write on the socket
-        // try to connect to the server
-        try {
-            socket = new Socket(tfServer.getText(), Integer.parseInt(tfPort.getText()));
-        }
-        // if it failed not much I can so
-        catch (Exception ec) {
-            display("Error connectiong to server:" + ec.getMessage() + "\n");
-            return false;
-        }
-
-        /* Creating both Data Stream */
-        try {
-//			sInput  = new ObjectInputStream(socket.getInputStream());
-            sOutput = new ObjectOutputStream(socket.getOutputStream());
-        } catch (IOException eIO) {
-            display("Exception creating new Input/output Streams: " + eIO);
-            return false;
-        }
-
-        try {
-            sOutput.writeObject(result);
         } catch (IOException ex) {
             display("Exception creating new Input/output Streams: " + ex);
             this.disconnect();
@@ -408,15 +353,13 @@ public class P2PClient extends JFrame implements ActionListener {
                         //TODO: read certificate with encrypted DH value
                         //TODO: validate certificate with CA, decrypt DH
                         //TODO: if necessary, send back own certificate with response to CA (could be done in sendDiffieHellman())
-                        DHWithCertificateMessage certificateWithDH = (DHWithCertificateMessage) sInput.readObject();
-                        //TODO: Long gB = getDHFromResponse(certificateWithDH);
                         Long gB = (Long) sInput.readObject();
                         KEY = gB ^ A % Constants.P;
                         initializeCiphers();
                         if (!requestSent) {
                             //TODO: DHWithCertificateMessage response = new DHWithCertificateMessage(cert, response);
                             Long response = Constants.G ^ A % Constants.P;
-                            sendDiffieHellman(response);
+                            sOutput.writeObject(response);
                             requestSent = true;
                         }
                     } else {
