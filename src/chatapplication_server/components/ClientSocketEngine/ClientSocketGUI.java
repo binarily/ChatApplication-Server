@@ -319,7 +319,7 @@ public class ClientSocketGUI extends JFrame implements IComponent, ActionListene
          /** P2P Chat Window */
          if ( o == p2pClient )
          {
-             P2PClient p2p = new P2PClient();
+             P2PClient p2p = new P2PClient(configManager.getValue( "Client.Username" ));
          }
          
          /** If this is a login operation... */
